@@ -246,3 +246,13 @@ npm install
 npm run dev       # Inicia el servidor en http://localhost:5173
 npm run test      # Corre los tests con Vitest
 ```
+Claude colaboró en las siguientes tareas:
+
+- Identificación y corrección de los 6 bugs intencionales en `bst.js` y `BSTVisualizer.jsx`
+- Implementación de las funciones de recorrido `inOrder`, `preOrder`, `postOrder` y `getHeight`
+- Aplicación de buenas prácticas de rendimiento en React con `useCallback` y `useMemo`
+- Diagnóstico y solución del error `ERR_REQUIRE_ESM` en el entorno de pruebas de Vitest
+- Mejoras de UX como el manejo de entradas inválidas (`NaN`) y el resaltado visual del nodo encontrado en la búsqueda
+- Mejora tipográfica de los nodos en la visualización del árbol
+
+El código fue revisado y validado.
