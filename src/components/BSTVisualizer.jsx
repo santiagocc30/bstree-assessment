@@ -2,13 +2,9 @@
  * BSTVisualizer.jsx
  *
  * Componente principal del visualizador de Árbol Binario de Búsqueda.
- *
- * ⚠️  NOTA PARA EL ESTUDIANTE:
- * Este componente tiene problemas de rendimiento y un bug de UX.
- * Usa React DevTools Profiler para encontrarlos.
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import Tree from "react-d3-tree";
 
 import { insert, search, inOrder, preOrder, postOrder, toD3Format, randomInt } from "../utils/bst";
@@ -17,46 +13,37 @@ import SearchBar from "./SearchBar";
 
 import styles from "./BSTVisualizer.module.css";
 
-// BUG #5 (Performance): Esta función se recrea en cada render.
-// Cuando el árbol tiene 20+ nodos, el re-render se siente lento.
-// Pista: ¿qué hook de React sirve para memoizar una función?
-const getTraversalResult = (root, type) => {
-  switch (type) {
-    case "inOrder":   return inOrder(root);
-    case "preOrder":  return preOrder(root);
-    case "postOrder": return postOrder(root);
-    default: return [];
-  }
-};
-
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function BSTVisualizer() {
-  const [root, setRoot]                   = useState(null);
-  const [inputValue, setInputValue]       = useState("");
-  const [activeTraversal, setTraversal]   = useState(null); // "inOrder" | "preOrder" | "postOrder"
-  const [searchTerm, setSearchTerm]       = useState("");
-  const [foundNode, setFoundNode]         = useState(null);
-  const [errorMessage, setErrorMessage]   = useState("");
+  const [root, setRoot] = useState(null);
+  const [inputValue, setInputValue] = useState("");
+  const [activeTraversal, setTraversal] = useState(null); // "inOrder" | "preOrder" | "postOrder"
+  const [searchTerm, setSearchTerm] = useState("");
+  const [foundNode, setFoundNode] = useState(null);
+  const [errorMessage, setErrorMessage] = useState("");
 
   // ── Insert ──────────────────────────────────────────────────────────────────
   const handleInsert = () => {
     const parsed = parseInt(inputValue, 10);
 
-    // BUG #6 (UX): Acepta NaN silenciosamente. Si el usuario escribe
-    // "abc" y presiona insertar, no pasa nada y no hay feedback.
-    // El error se traga. Debes manejar este caso y mostrar el errorMessage.
-    if (!isNaN(parsed)) {
-      setRoot((prevRoot) => insert(prevRoot, parsed));
-      setInputValue("");
-      setErrorMessage("");
+    // FIX BUG #6 (UX): Si el input no es un número válido, mostrar mensaje de error
+    // en lugar de ignorar silenciosamente la acción.
+    if (isNaN(parsed)) {
+      setErrorMessage("⚠️ Por favor ingresa un número entero válido.");
+      return;
     }
+
+    setRoot((prevRoot) => insert(prevRoot, parsed));
+    setInputValue("");
+    setErrorMessage(""); // Limpiar error previo si la inserción es exitosa
   };
 
   // ── Random Insert ───────────────────────────────────────────────────────────
   const handleRandomInsert = () => {
     const value = randomInt(1, 99);
     setRoot((prevRoot) => insert(prevRoot, value));
+    setErrorMessage(""); // Limpiar error previo al insertar aleatoriamente
   };
 
   // ── Search ──────────────────────────────────────────────────────────────────
@@ -67,35 +54,69 @@ export default function BSTVisualizer() {
   };
 
   // ── Derived data ────────────────────────────────────────────────────────────
-  const d3Data     = root ? toD3Format(root) : null;
+  const d3Data = root ? toD3Format(root) : null;
 
-  // BUG #5 continúa: traversalResult se recalcula en cada render,
-  // no solo cuando root o activeTraversal cambian.
-  const traversalResult = activeTraversal
-    ? getTraversalResult(root, activeTraversal)
-    : [];
+  // FIX BUG #5 (Performance): useCallback memoiza la función para que no se
+  // recree en cada render. Solo se recrea si root o activeTraversal cambian.
+  const getTraversalResult = useCallback((type) => {
+    switch (type) {
+      case "inOrder": return inOrder(root);
+      case "preOrder": return preOrder(root);
+      case "postOrder": return postOrder(root);
+      default: return [];
+    }
+  }, [root]);
+
+  // FIX BUG #5 (cont.): useMemo hace que traversalResult solo se recalcule
+  // cuando root o activeTraversal cambian, no en cada render.
+  const traversalResult = useMemo(
+    () => (activeTraversal ? getTraversalResult(activeTraversal) : []),
+    [activeTraversal, getTraversalResult]
+  );
 
   // ── Node Rendering ──────────────────────────────────────────────────────────
   /**
-   * Función de render personalizada para cada nodo del árbol.
-   * TODO: El estudiante debe modificar esto para que los nodos
-   * que coincidan con `foundNode` se resalten visualmente.
+   * FIX: Resaltar el nodo encontrado por la búsqueda con un color distinto.
+   * Si nodeDatum.name coincide con foundNode, el círculo cambia a naranja
+   * y agrega un anillo exterior para mayor visibilidad.
    */
-  const renderCustomNode = ({ nodeDatum }) => (
-    <g>
-      {/* TODO: Cambiar el color del círculo si nodeDatum.name === String(foundNode) */}
-      <circle r={20} fill="#4A90D9" stroke="#fff" strokeWidth={2} />
-      <text
-        fill="white"
-        textAnchor="middle"
-        dominantBaseline="central"
-        fontSize={12}
-        fontWeight="bold"
-      >
-        {nodeDatum.name}
-      </text>
-    </g>
-  );
+  const renderCustomNode = useCallback(({ nodeDatum }) => {
+    const isFound = String(foundNode) === nodeDatum.name;
+
+    return (
+      <g>
+        {/* Anillo exterior solo para el nodo encontrado */}
+        {isFound && (
+          <circle
+            r={26}
+            fill="none"
+            stroke="#F5A623"
+            strokeWidth={3}
+            opacity={0.8}
+          />
+        )}
+
+        {/* Círculo principal: naranja si es el nodo encontrado, azul si no */}
+        <circle
+          r={22}
+          fill={isFound ? "#F5A623" : "#4A90D9"}
+          stroke="#fff"
+          strokeWidth={2}
+        />
+
+        <text
+          fill="white"
+          textAnchor="middle"
+          dominantBaseline="central"
+          fontSize={nodeDatum.name.length > 2 ? 10 : 13}
+          fontWeight="500"
+          fontFamily="system-ui, -apple-system, sans-serif"
+        >
+          {nodeDatum.name}
+        </text>
+      </g>
+    );
+  }, [foundNode]); // Solo se recrea cuando cambia el nodo encontrado
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -121,7 +142,12 @@ export default function BSTVisualizer() {
           </button>
         </div>
 
-        {/* TODO: Renderizar errorMessage aquí cuando exista */}
+        {/* FIX BUG #6: Mostrar mensaje de error cuando el input sea inválido */}
+        {errorMessage && (
+          <p className={styles.errorMessage} role="alert">
+            {errorMessage}
+          </p>
+        )}
 
         <SearchBar
           value={searchTerm}
