@@ -256,3 +256,7 @@ Claude colaboró en las siguientes tareas:
 - Mejora tipográfica de los nodos en la visualización del árbol
 
 El código fue revisado y validado.
+
+## Video
+
+https://youtu.be/1grsL9vx2rk    
